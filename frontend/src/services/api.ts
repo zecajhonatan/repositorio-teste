@@ -6,7 +6,6 @@ import { signOut } from "../contexts/AuthContext";
 
 export function setupAPIClient(ctx = undefined) {
   let cookies = parseCookies(ctx);
-  console.log(cookies);
   let { "@nextauth.token": token } = cookies;
 
   let api = axios.create({

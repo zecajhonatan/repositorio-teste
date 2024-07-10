@@ -5,27 +5,78 @@ import { useState } from "react";
 import style from "./style.module.scss";
 import { FiRefreshCcw } from "react-icons/fi";
 import { setupAPIClient } from "../../services/api";
+import { ModalOrder } from "../../components/ModalOrder";
 
 import Modal from "react-modal";
 
-type OrdersProps = {
+type OrderProps = {
   id: string;
   table: string | number;
   status: boolean;
   draft: boolean;
-  name: string | null;
+  name: string;
 };
 
 interface HomeProps {
-  orders: OrdersProps[];
+  orders: OrderProps[];
 }
+
+export type OrderItemProps = {
+  id: string;
+  amount: number;
+  order_id: string;
+  product_id: string;
+  product: {
+    id: string;
+    name: string;
+    price: string;
+    description: string;
+    banner: string;
+  };
+  order: {
+    id: string;
+    table: string | number;
+    name: string | null;
+  };
+};
 
 export default function Dashboard({ orders }: HomeProps) {
   let [orderList, setOrderList] = useState(orders || []);
-  let [modalItem, setModalItem] = useState();
 
-  function handleOpenModalVew(id: string) {
-    alert("Open Modal " + id);
+  let [modalItem, setModalItem] = useState<OrderItemProps[]>();
+  let [modalVisible, setModalVisible] = useState(false);
+
+  function handleCloseModal() {
+    setModalVisible(false);
+  }
+
+  async function handleOpenModalView(id: string) {
+    let apiClient = setupAPIClient();
+    let response = await apiClient("/order/detail", {
+      // rota
+      params: {
+        order_id: id,
+      },
+    });
+    setModalItem(response.data);
+    setModalVisible(true);
+  }
+
+  async function handleFinishItem(id: string) {
+    let apiClient = setupAPIClient();
+    await apiClient.put("/order/finish", {
+      order_id: id,
+    });
+
+    let response = await apiClient.get("/orders");
+    setOrderList(response.data);
+    setModalVisible(false);
+  }
+
+  async function handleRefreshOrders() {
+    let apiClient = setupAPIClient();
+    let response = await apiClient.get("/orders");
+    setOrderList(response.data);
   }
 
   Modal.setAppElement("#__next");
@@ -39,18 +90,23 @@ export default function Dashboard({ orders }: HomeProps) {
         <main className={style.container}>
           <div className={style.containerHeader}>
             <h1>Ultimo Pedido</h1>
-            <button>
+            <button onClick={handleRefreshOrders}>
               <FiRefreshCcw size={25} color="#3fffa3" />
             </button>
           </div>
-
           <article className={style.listOrders}>
-            {orders.map((itens) => {
+            {orderList.length === 0 && (
+              <span className={style.emptyList}>
+                Nenhum Pedido aberto foi encontrato
+              </span>
+            )}
+
+            {orderList.map((itens) => {
               return (
                 <section
                   key={itens.id}
                   className={style.orderItem}
-                  onClick={() => handleOpenModalVew(itens.id)}
+                  onClick={() => handleOpenModalView(itens.id)}
                 >
                   <button>
                     <div className={style.tag}></div>
@@ -60,6 +116,15 @@ export default function Dashboard({ orders }: HomeProps) {
               );
             })}
           </article>
+
+          {modalVisible && (
+            <ModalOrder
+              isOpen={modalVisible}
+              order={modalItem}
+              onRequestClose={handleCloseModal}
+              handleFinishOrder={handleFinishItem}
+            />
+          )}
         </main>
       </div>
     </>
